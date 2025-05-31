@@ -1,0 +1,34 @@
+{
+    "network": {
+        "httpServers": [
+            {
+                "enable": true,
+                "name": "httpServer",
+                "host": "0.0.0.0",
+                "port": 3000,
+                "enableCors": true,
+                "enableWebsocket": false,
+                "messagePostFormat": "array",
+                "token": "",
+                "debug": true
+            }
+        ],
+        "httpSseServers": [],
+        "httpClients": [
+            {
+                "enable": true,
+                "name": "pythonBot",
+                "url": "http://127.0.0.1:5000",
+                "messagePostFormat": "array",
+                "token": "",
+                "debug": true
+            }
+        ],
+        "websocketServers": [],
+        "websocketClients": [],
+        "plugins": []
+    },
+    "musicSignUrl": "",
+    "enableLocalFile2Url": true,
+    "parseMultMsg": false
+}
