@@ -1,14 +1,19 @@
 import re
 import logging
 import requests
+from collections import Counter
+import random
 logger = logging.getLogger(__name__)
 
 # 存储每个会话的风格设置，默认为嘴臭风格
 session_styles = {}
+
 ban_list = set()
 with open("ban.txt", "r") as f:
     ban_list = f.readlines()
     ban_list = set([line.strip() for line in ban_list])
+
+user_ban_times = Counter()
 
 def get_session_style(session_id):
     """获取指定会话的风格，默认为嘴臭风格"""
@@ -85,10 +90,13 @@ def get_all_session_styles():
     return session_styles.copy() 
 
 def ban_user(url,group_id, user_id, duration = 30):
+    user_ban_times[user_id] += 1
+    duration = duration * user_ban_times[user_id]
+    time = random.randint(1, duration)
     data = {
         "group_id": group_id,
         "user_id": user_id,
-        "duration": duration
+        "duration": time
     }
     response = requests.post(url+"/set_group_ban", json=data).json()
     return response["status"]
