@@ -9,7 +9,8 @@ from utils import (
     parse_system_command, 
     handle_system_command,
     ban_list,
-    handle_banned_user
+    handle_banned_user,
+    probabilitys
 )
 from api import api_bp
 
@@ -108,6 +109,7 @@ def handle_message():
             if message_type == 'group':
                 # 群消息处理
                 group_id = data.get('group_id')
+                session_id = f"group_{group_id}"
                 # 检查用户发言是否包含ban_list中的关键字
                 message_lower = message_text.lower().replace(" ", "")
                 is_banned = any(banned_word in message_lower for banned_word in ban_list if banned_word.strip())
@@ -121,7 +123,7 @@ def handle_message():
                     
                     # 检查是否是系统命令
                     is_command, command, params = parse_system_command(message_text.strip())
-                    session_id = f"group_{group_id}"
+                    
                     
                     if is_command:
                         # 处理系统命令
@@ -144,7 +146,7 @@ def handle_message():
                             send_message(group_id=group_id, message="抱歉，我现在无法回复，请稍后再试。")
                 else:
                     # 没有@机器人，但有5%概率自动回复
-                    if message_text.strip() and random.random() < 0.05:
+                    if message_text.strip() and random.random() < probabilitys.get(session_id, 0.05):
                         logger.info(f"触发5%概率自动回复，群号: {group_id}, 用户: {user_id}")
                         session_id = f"group_{group_id}"
                         

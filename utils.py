@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # 存储每个会话的风格设置，默认为嘴臭风格
 session_styles = {}
-
+probabilitys = {}
 ban_list = set()
 with open("ban.txt", "r") as f:
     ban_list = f.readlines()
@@ -56,6 +56,13 @@ def parse_system_command(message_text):
         
         elif command_content == "帮助":
             return True, "帮助", None
+        elif command_content.startswith("修改概率"):
+            parts = command_content.split()
+            if len(parts) >= 2:
+                prob = float(parts[1])
+                return True, "修改概率", prob
+            else:
+                return True, "修改概率", None
         
     return False, None, None
 
@@ -80,6 +87,13 @@ def handle_system_command(command, params, session_id):
     
     if command == "帮助":
         return "可用命令：\n[切换风格 <风格名>]\n[风格列表]\n[帮助]"
+    
+    if command == "修改概率":
+        global probabilitys
+        if params is None:
+            return "请指定要修改的概率，例如：[修改概率 10]"
+        probabilitys[session_id] = float(params)*0.01
+        return f"已修改概率为 {probabilitys[session_id]}"
     
     return "未知的系统命令"
 
