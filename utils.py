@@ -67,7 +67,7 @@ def handle_system_command(command, params, session_id):
         return "可用风格：" + ", ".join(get_available_styles())
     
     if command == "帮助":
-        return "可用命令：\n[切换风格 风格名]\n[风格列表]\n[帮助]"
+        return "可用命令：\n[切换风格 <风格名>]\n[风格列表]\n[帮助]"
     
     return "未知的系统命令"
 
