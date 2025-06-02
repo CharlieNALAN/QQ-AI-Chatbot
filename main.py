@@ -3,12 +3,24 @@ import requests
 from flask import Flask, request, jsonify
 import logging
 from llm_client import llm_client
+from utils import (
+    get_session_style, 
+    set_session_style, 
+    parse_system_command, 
+    handle_system_command,
+    get_available_styles,
+    get_all_session_styles
+)
+from api import api_bp
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# 注册API蓝图
+app.register_blueprint(api_bp)
 
 # napcat配置
 NAPCAT_HOST = "127.0.0.1"
@@ -101,19 +113,29 @@ def handle_message():
                 if is_at_bot and message_text.strip():
                     logger.info(f"机器人被@了，群号: {group_id}, 用户: {user_id}")
                     
-                    # 使用大模型生成回复，传入群组ID作为会话ID
-                    try:
-                        if llm_client:
-                            # 使用 "group_" + group_id 作为群聊的会话ID
-                            session_id = f"group_{group_id}"
-                            ai_reply = llm_client.get_chat_response(message_text.strip(), session_id)
-                        else:
-                            ai_reply = "抱歉，AI服务暂时不可用。"
-                        send_message(group_id=group_id, message=ai_reply)
-                    except Exception as e:
-                        logger.error(f"大模型调用失败: {e}")
-                        # 降级到默认回复
-                        send_message(group_id=group_id, message="抱歉，我现在无法回复，请稍后再试。")
+                    # 检查是否是系统命令
+                    is_command, command, params = parse_system_command(message_text.strip())
+                    session_id = f"group_{group_id}"
+                    
+                    if is_command:
+                        # 处理系统命令
+                        logger.info(f"检测到系统命令: {command} {params}")
+                        reply = handle_system_command(command, params, session_id)
+                        send_message(group_id=group_id, message=reply)
+                    else:
+                        # 使用大模型生成回复
+                        try:
+                            if llm_client:
+                                # 获取当前会话的风格
+                                current_style = get_session_style(session_id)
+                                ai_reply = llm_client.get_chat_response(message_text.strip(), session_id, current_style)
+                            else:
+                                ai_reply = "抱歉，AI服务暂时不可用。"
+                            send_message(group_id=group_id, message=ai_reply)
+                        except Exception as e:
+                            logger.error(f"大模型调用失败: {e}")
+                            # 降级到默认回复
+                            send_message(group_id=group_id, message="抱歉，我现在无法回复，请稍后再试。")
                 else:
                     logger.info(f"群消息但未@机器人或消息为空，忽略")
                     
@@ -122,19 +144,29 @@ def handle_message():
                 logger.info(f"收到私聊消息，用户: {user_id}")
                 
                 if message_text.strip():
-                    # 使用大模型生成回复，传入用户ID作为会话ID
-                    try:
-                        if llm_client:
-                            # 使用 "private_" + user_id 作为私聊的会话ID
-                            session_id = f"private_{user_id}"
-                            ai_reply = llm_client.get_chat_response(message_text.strip(), session_id)
-                        else:
-                            ai_reply = "抱歉，AI服务暂时不可用。"
-                        send_message(user_id=user_id, message=ai_reply)
-                    except Exception as e:
-                        logger.error(f"大模型调用失败: {e}")
-                        # 降级到默认回复
-                        send_message(user_id=user_id, message="抱歉，我现在无法回复，请稍后再试。")
+                    # 检查是否是系统命令
+                    is_command, command, params = parse_system_command(message_text.strip())
+                    session_id = f"private_{user_id}"
+                    
+                    if is_command:
+                        # 处理系统命令
+                        logger.info(f"检测到系统命令: {command} {params}")
+                        reply = handle_system_command(command, params, session_id)
+                        send_message(user_id=user_id, message=reply)
+                    else:
+                        # 使用大模型生成回复
+                        try:
+                            if llm_client:
+                                # 获取当前会话的风格
+                                current_style = get_session_style(session_id)
+                                ai_reply = llm_client.get_chat_response(message_text.strip(), session_id, current_style)
+                            else:
+                                ai_reply = "抱歉，AI服务暂时不可用。"
+                            send_message(user_id=user_id, message=ai_reply)
+                        except Exception as e:
+                            logger.error(f"大模型调用失败: {e}")
+                            # 降级到默认回复
+                            send_message(user_id=user_id, message="抱歉，我现在无法回复，请稍后再试。")
         
         return jsonify({"status": "ok"})
         
@@ -142,99 +174,10 @@ def handle_message():
         logger.error(f"处理消息时出错: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/test', methods=['GET'])
-def test():
-    """测试接口"""
-    return jsonify({"status": "Bot is running!", "message": "QQ机器人正常运行"})
-
-@app.route('/history/<session_id>', methods=['GET'])
-def get_history(session_id):
-    """获取指定会话的历史记录"""
-    try:
-        if llm_client:
-            history_length = llm_client.get_history_length(session_id)
-            from llm_client import cache_history
-            history = list(cache_history.get(session_id, []))
-            return jsonify({
-                "status": "success",
-                "session_id": session_id,
-                "history_length": history_length,
-                "history": history
-            })
-        else:
-            return jsonify({"status": "error", "message": "LLM客户端不可用"}), 500
-    except Exception as e:
-        logger.error(f"获取历史记录失败: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/history/<session_id>', methods=['DELETE'])
-def clear_history(session_id):
-    """清空指定会话的历史记录"""
-    try:
-        if llm_client:
-            llm_client.clear_history(session_id)
-            return jsonify({
-                "status": "success",
-                "message": f"已清空会话 {session_id} 的历史记录"
-            })
-        else:
-            return jsonify({"status": "error", "message": "LLM客户端不可用"}), 500
-    except Exception as e:
-        logger.error(f"清空历史记录失败: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/history/all', methods=['GET'])
-def get_all_sessions():
-    """获取所有会话的信息"""
-    try:
-        from llm_client import cache_history, cache_time
-        import time
-        
-        sessions_info = {}
-        current_time = time.time()
-        
-        for session_id, history in cache_history.items():
-            last_active_time = cache_time.get(session_id)
-            time_since_last_active = None
-            if last_active_time:
-                time_since_last_active = current_time - last_active_time
-            
-            sessions_info[session_id] = {
-                "length": len(history),
-                "last_message": history[-1]["content"] if history else None,
-                "last_active_time": last_active_time,
-                "time_since_last_active_minutes": time_since_last_active / 60 if time_since_last_active else None
-            }
-            
-        return jsonify({
-            "status": "success",
-            "total_sessions": len(sessions_info),
-            "sessions": sessions_info
-        })
-    except Exception as e:
-        logger.error(f"获取会话信息失败: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/session/<session_id>/info', methods=['GET'])
-def get_session_info(session_id):
-    """获取指定会话的详细信息，包括时间戳"""
-    try:
-        if llm_client:
-            session_info = llm_client.get_session_info(session_id)
-            return jsonify({
-                "status": "success",
-                **session_info
-            })
-        else:
-            return jsonify({"status": "error", "message": "LLM客户端不可用"}), 500
-    except Exception as e:
-        logger.error(f"获取会话信息失败: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 if __name__ == '__main__':
     logger.info("启动QQ机器人...")
     logger.info("请确保napcat已启动并配置正确")
-    logger.info("请设置环境变量 SAMBANOVA_API_KEY")
+    logger.info("请设置环境变量 OPENAI_API_KEY 和 BASE_URL")
     logger.info(f"Bot服务器启动在: http://0.0.0.0:5000")
     logger.info(f"napcat地址: {NAPCAT_URL}")
     
