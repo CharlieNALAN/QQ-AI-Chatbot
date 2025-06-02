@@ -1,16 +1,13 @@
 import json
 import requests
+import random
 from flask import Flask, request, jsonify
 import logging
 from llm_client import llm_client
 from utils import (
     get_session_style, 
-    set_session_style, 
     parse_system_command, 
     handle_system_command,
-    get_available_styles,
-    get_all_session_styles,
-    ban_user,
     ban_list,
     handle_banned_user
 )
@@ -146,7 +143,26 @@ def handle_message():
                             # 降级到默认回复
                             send_message(group_id=group_id, message="抱歉，我现在无法回复，请稍后再试。")
                 else:
-                    logger.info(f"群消息但未@机器人或消息为空，忽略")
+                    # 没有@机器人，但有5%概率自动回复
+                    if message_text.strip() and random.random() < 0.05:
+                        logger.info(f"触发5%概率自动回复，群号: {group_id}, 用户: {user_id}")
+                        session_id = f"group_{group_id}"
+                        
+                        # 使用大模型生成回复
+                        try:
+                            if llm_client:
+                                # 获取当前会话的风格
+                                current_style = get_session_style(session_id)
+                                ai_reply = llm_client.get_chat_response(message_text.strip(), session_id, current_style)
+                            else:
+                                ai_reply = "抱歉，AI服务暂时不可用。"
+                            send_message(group_id=group_id, message=ai_reply)
+                        except Exception as e:
+                            logger.error(f"大模型调用失败: {e}")
+                            # 降级到默认回复
+                            send_message(group_id=group_id, message="emmm...")
+                    else:
+                        logger.info(f"群消息但未@机器人或消息为空，忽略")
                     
             elif message_type == 'private':
                 # 私聊消息处理
