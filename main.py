@@ -11,10 +11,10 @@ from utils import (
     get_available_styles,
     get_all_session_styles,
     ban_user,
-    ban_list
+    ban_list,
+    handle_banned_user
 )
 from api import api_bp
-from regular_dialog import ban, ban_fail
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -116,33 +116,7 @@ def handle_message():
                 is_banned = any(banned_word in message_lower for banned_word in ban_list if banned_word.strip())
                 
                 if is_banned:
-                    status = ban_user(NAPCAT_URL,group_id, user_id)
-                    if status == "ok":
-                        logger.info(f"用户 {user_id} 已被禁言")
-                         # 使用大模型生成回复
-                        try:
-                            if llm_client:
-                                ai_reply = llm_client.get_chat_response(ban)
-                            else:
-                                ai_reply = "抱歉，AI服务暂时不可用。"
-                            send_message(group_id=group_id, message=ai_reply)
-                        except Exception as e:
-                            logger.error(f"大模型调用失败: {e}")
-                            # 降级到默认回复
-                            send_message(group_id=group_id, message="你已被禁言，请不要发送违禁词。")
-                    else:
-                        logger.error(f"禁言失败: {status}")
-                                                 # 使用大模型生成回复
-                        try:
-                            if llm_client:
-                                ai_reply = llm_client.get_chat_response(ban_fail)
-                            else:
-                                ai_reply = "抱歉，AI服务暂时不可用。"
-                            send_message(group_id=group_id, message=ai_reply)
-                        except Exception as e:
-                            logger.error(f"大模型调用失败: {e}")
-                            # 降级到默认回复
-                            send_message(group_id=group_id, message="你已被警告，请不要发送违禁词。")
+                    handle_banned_user(NAPCAT_URL, group_id, user_id, send_message)
                 
                 # 只有@机器人时才回复
                 if is_at_bot and message_text.strip():

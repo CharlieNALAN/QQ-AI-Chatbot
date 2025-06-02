@@ -2,7 +2,10 @@ import re
 import logging
 import requests
 from collections import Counter
-import random
+import random    
+from regular_dialog import ban, ban_fail
+from llm_client import llm_client
+from typing import Callable
 logger = logging.getLogger(__name__)
 
 # 存储每个会话的风格设置，默认为嘴臭风格
@@ -100,6 +103,49 @@ def ban_user(url,group_id, user_id, duration = 30):
     }
     response = requests.post(url+"/set_group_ban", json=data).json()
     return response["status"]
+
+def handle_banned_user(napcat_url, group_id, user_id, send_message_func: Callable):
+    """
+    处理用户发送违禁词的逻辑
+    
+    Args:
+        napcat_url (str): napcat服务的URL
+        group_id (int): 群组ID
+        user_id (int): 用户ID
+        llm_client: 大模型客户端
+        send_message_func: 发送消息的函数
+    """
+
+    
+    # 尝试禁言用户
+    status = ban_user(napcat_url, group_id, user_id)
+    
+    if status == "ok":
+        logger.info(f"用户 {user_id} 已被禁言")
+        # 使用大模型生成回复
+        try:
+            if llm_client:
+                ai_reply = llm_client.get_chat_response(ban)
+            else:
+                ai_reply = "抱歉，AI服务暂时不可用。"
+            send_message_func(group_id=group_id, message=ai_reply)
+        except Exception as e:
+            logger.error(f"大模型调用失败: {e}")
+            # 降级到默认回复
+            send_message_func(group_id=group_id, message="你已被禁言，请不要发送违禁词。")
+    else:
+        logger.error(f"禁言失败: {status}")
+        # 使用大模型生成回复
+        try:
+            if llm_client:
+                ai_reply = llm_client.get_chat_response(ban_fail)
+            else:
+                ai_reply = "抱歉，AI服务暂时不可用。"
+            send_message_func(group_id=group_id, message=ai_reply)
+        except Exception as e:
+            logger.error(f"大模型调用失败: {e}")
+            # 降级到默认回复
+            send_message_func(group_id=group_id, message="你已被警告，请不要发送违禁词。")
 
 if __name__ == "__main__":
     res = ban_user("http://127.0.0.1:3000", 1047399248, 1277087689, duration=1)
