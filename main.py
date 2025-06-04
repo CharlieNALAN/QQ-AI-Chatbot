@@ -155,7 +155,7 @@ def handle_message():
                             if llm_client:
                                 # 获取当前会话的风格
                                 current_style = get_session_style(session_id)
-                                ai_reply = llm_client.get_chat_response(message_text.strip(), session_id, current_style)
+                                ai_reply = llm_client.get_chat_response(message_text.strip(), session_id, current_style, auto_reply=True)
                             else:
                                 ai_reply = "抱歉，AI服务暂时不可用。"
                             send_message(group_id=group_id, message=ai_reply)

@@ -56,7 +56,7 @@ class LLMClient:
         history.append({"role": role, "content": content})
         logger.info(f"会话 {session_id} 历史记录长度: {len(history)}")
     
-    def get_response(self, user_message, system_prompt=None, session_id=None):
+    def get_response(self, user_message, system_prompt=None, session_id=None, auto_reply=False):
         """
         获取大模型回复
         
@@ -88,14 +88,18 @@ class LLMClient:
                 # 将历史对话添加到messages中
                 messages.extend(list(history))
                 logger.info(f"会话 {session_id} 加载了 {len(history)} 条历史记录")
-            
+            if auto_reply:
+                new_user_message = "(你的回答不得超过20个字)" + user_message
+            else:
+                new_user_message = user_message
+
             # 添加当前用户消息
             messages.append({
                 "role": "user", 
-                "content": user_message
+                "content": new_user_message
             })
             
-            logger.info(f"发送消息给大模型: {user_message}")
+            logger.info(f"发送消息给大模型: {new_user_message}")
             
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -119,7 +123,7 @@ class LLMClient:
             logger.error(f"大模型请求失败: {e}")
             return "抱歉，我现在无法回复，请稍后再试。"
     
-    def get_chat_response(self, user_message, session_id=None, style="嘴臭"):
+    def get_chat_response(self, user_message, session_id=None, style="嘴臭",auto_reply=False):
         """
         获取聊天回复（带默认人设和对话记忆）
         
@@ -134,7 +138,7 @@ class LLMClient:
         # 根据风格选择对应的prompt
         system_prompt = prompt_mp.get(style, prompt_mp["嘴臭"])  # 如果风格不存在，使用默认嘴臭风格
         logger.info(f"使用风格: {style}")
-        return self.get_response(user_message, system_prompt, session_id)
+        return self.get_response(user_message, system_prompt, session_id, auto_reply)
     
     def clear_history(self, session_id):
         """清空指定会话的历史记录"""
