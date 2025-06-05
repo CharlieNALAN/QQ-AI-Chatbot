@@ -89,7 +89,7 @@ class LLMClient:
                 messages.extend(list(history))
                 logger.info(f"会话 {session_id} 加载了 {len(history)} 条历史记录")
             if auto_reply:
-                new_user_message = "(你的回答不得超过20个字)" + user_message
+                new_user_message = "(你的回答不得超过20个字,尽可能用一句话回答,尽可能贴近人类聊天可能会打的文本样式)" + user_message
             else:
                 new_user_message = user_message
 
