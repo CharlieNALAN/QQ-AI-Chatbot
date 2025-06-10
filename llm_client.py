@@ -19,7 +19,7 @@ class LLMClient:
                 base_url=os.getenv("BASE_URL")
             )
             self.model = "deepseek-v3"
-            self.max_history_length = 36  # 最大记忆窗口长度
+            self.max_history_length = 38  # 最大记忆窗口长度
             self.session_timeout = 15 * 60  # 15分钟，单位：秒
             logger.info("LLM客户端初始化成功")
         except Exception as e:
@@ -89,7 +89,7 @@ class LLMClient:
                 messages.extend(list(history))
                 logger.info(f"会话 {session_id} 加载了 {len(history)} 条历史记录")
             if auto_reply:
-                new_user_message = "(你的回答不得超过20个字,尽可能用一句话回答,尽可能贴近人类聊天可能会打的文本样式)" + user_message
+                new_user_message = "(你的回答不得超过20个字,尽可能用一句话回答,尽可能贴近人类聊天可能会打的文本样式,不携带引号和星号的标识符)" + user_message
             else:
                 new_user_message = user_message
 
@@ -104,8 +104,8 @@ class LLMClient:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0.1,
-                top_p=0.1,
+                temperature=1.0,
+                top_p=1.0,
                 max_tokens=1000
             )
             
