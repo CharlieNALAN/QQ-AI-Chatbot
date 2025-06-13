@@ -3,6 +3,7 @@ import requests
 import random
 from flask import Flask, request, jsonify
 import logging
+import colorlog
 from llm_client import llm_client
 from utils import (
     get_session_style, 
@@ -12,11 +13,19 @@ from utils import (
     handle_banned_user,
     probabilitys
 )
+from src.utils.logger import CustomColoredFormatter
 from api import api_bp
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+handler = colorlog.StreamHandler()
+handler.setFormatter(CustomColoredFormatter(
+    '%(message)s',  
+    datefmt='%Y-%m-%d %H:%M:%S,%f'[:-3]
+))
+
+logger = colorlog.getLogger(__name__)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
 
@@ -146,7 +155,7 @@ def handle_message():
                             send_message(group_id=group_id, message="抱歉，我现在无法回复，请稍后再试。")
                 else:
                     # 没有@机器人，但有5%概率自动回复
-                    if message_text.strip() and random.random() < probabilitys.get(session_id, 0.05):
+                    if message_text.strip() and random.random() < probabilitys.get(session_id, 0.1):
                         logger.info(f"触发5%概率自动回复，群号: {group_id}, 用户: {user_id}")
                         session_id = f"group_{group_id}"
                         
